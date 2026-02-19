@@ -1,0 +1,46 @@
+schemaVersion: 1
+kind: command
+metadata:
+  name: Get
+  slug: get
+  description: Get Kubernetes resources with flexible output
+  tags: [kubernetes, resources, list]
+dependencies: [kubectl]
+defaults:
+  shell: /bin/bash
+  timeout: 30s
+args:
+  positional:
+    - name: resource
+      description: "Resource type (e.g. pods, services, deployments)"
+  flags:
+    - name: namespace
+      short: "n"
+      type: string
+      description: Kubernetes namespace
+      default: ""
+    - name: all
+      short: A
+      type: bool
+      description: Show resources across all namespaces
+      default: "false"
+    - name: output
+      short: o
+      type: string
+      description: "Output format (wide, json, yaml, name)"
+      default: ""
+    - name: show-labels
+      short: L
+      type: bool
+      description: Show labels in output
+      default: "false"
+steps:
+  - name: get
+    run: |
+      set -euo pipefail
+      ARGS=()
+      if [[ "{{.args.all}}" == "true" ]]; then ARGS+=(--all-namespaces); fi
+      if [[ -n "{{.args.namespace}}" ]]; then ARGS+=(--namespace "{{.args.namespace}}"); fi
+      if [[ -n "{{.args.output}}" ]]; then ARGS+=(-o "{{.args.output}}"); fi
+      if [[ "{{.args.show-labels}}" == "true" ]]; then ARGS+=(--show-labels); fi
+      kubectl get "{{.args.resource}}" "${ARGS[@]}"

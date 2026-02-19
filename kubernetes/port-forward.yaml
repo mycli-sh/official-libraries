@@ -1,0 +1,31 @@
+schemaVersion: 1
+kind: command
+metadata:
+  name: Port Forward
+  slug: port-forward
+  description: Forward local ports to a pod, service, or deployment
+  tags: [kubernetes, networking, debugging]
+dependencies: [kubectl]
+defaults:
+  shell: /bin/bash
+  timeout: 30m
+args:
+  positional:
+    - name: target
+      description: "Target resource (e.g. pod/name, svc/name, deploy/name)"
+    - name: ports
+      description: "Port mapping (e.g. 8080:80, 3000)"
+  flags:
+    - name: namespace
+      short: "n"
+      type: string
+      description: Kubernetes namespace
+      default: ""
+steps:
+  - name: port-forward
+    run: |
+      set -euo pipefail
+      ARGS=()
+      if [[ -n "{{.args.namespace}}" ]]; then ARGS+=(--namespace "{{.args.namespace}}"); fi
+      echo "Forwarding {{.args.ports}} → {{.args.target}}"
+      kubectl port-forward "{{.args.target}}" "{{.args.ports}}" "${ARGS[@]}"

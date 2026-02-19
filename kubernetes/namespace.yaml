@@ -1,0 +1,44 @@
+schemaVersion: 1
+kind: command
+metadata:
+  name: Namespace
+  slug: namespace
+  description: Switch or list Kubernetes namespaces
+  tags: [kubernetes, namespace, config]
+  aliases: [ns]
+dependencies: [kubectl]
+defaults:
+  shell: /bin/bash
+  timeout: 10s
+args:
+  positional:
+    - name: name
+      description: Namespace name to switch to
+      required: false
+      default: ""
+  flags:
+    - name: list
+      short: l
+      type: bool
+      description: List all namespaces
+      default: "false"
+    - name: current
+      short: c
+      type: bool
+      description: Show current namespace
+      default: "false"
+steps:
+  - name: namespace
+    run: |
+      set -euo pipefail
+      if [[ "{{.args.list}}" == "true" ]]; then
+        kubectl get namespaces
+        exit 0
+      fi
+      if [[ "{{.args.current}}" == "true" ]] || [[ -z "{{.args.name}}" ]]; then
+        NS=$(kubectl config view --minify --output 'jsonpath={..namespace}' 2>/dev/null)
+        echo "Current namespace: ${NS:-default}"
+        exit 0
+      fi
+      kubectl config set-context --current --namespace="{{.args.name}}"
+      echo "Switched to namespace: {{.args.name}}"

@@ -1,0 +1,38 @@
+schemaVersion: 1
+kind: command
+metadata:
+  name: Context
+  slug: context
+  description: Switch or list Kubernetes contexts
+  tags: [kubernetes, context, config]
+  aliases: [ctx]
+dependencies: [kubectl]
+defaults:
+  shell: /bin/bash
+  timeout: 10s
+args:
+  positional:
+    - name: name
+      description: Context name to switch to
+      required: false
+      default: ""
+  flags:
+    - name: list
+      short: l
+      type: bool
+      description: List all available contexts
+      default: "false"
+steps:
+  - name: context
+    run: |
+      set -euo pipefail
+      if [[ "{{.args.list}}" == "true" ]]; then
+        kubectl config get-contexts
+        exit 0
+      fi
+      if [[ -z "{{.args.name}}" ]]; then
+        echo "Current context: $(kubectl config current-context)"
+        exit 0
+      fi
+      kubectl config use-context "{{.args.name}}"
+      echo "Switched to context: {{.args.name}}"

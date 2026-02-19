@@ -1,0 +1,39 @@
+schemaVersion: 1
+kind: command
+metadata:
+  name: Exec
+  slug: exec
+  description: Execute a command in a running container
+  tags: [kubernetes, exec, debugging]
+dependencies: [kubectl]
+defaults:
+  shell: /bin/bash
+  timeout: 10m
+args:
+  positional:
+    - name: pod
+      description: Name of the pod
+  flags:
+    - name: namespace
+      short: "n"
+      type: string
+      description: Kubernetes namespace
+      default: ""
+    - name: container
+      short: c
+      type: string
+      description: Container name (for multi-container pods)
+      default: ""
+    - name: command
+      short: x
+      type: string
+      description: Command to execute (default is /bin/sh)
+      default: /bin/sh
+steps:
+  - name: exec
+    run: |
+      set -euo pipefail
+      ARGS=()
+      if [[ -n "{{.args.namespace}}" ]]; then ARGS+=(--namespace "{{.args.namespace}}"); fi
+      if [[ -n "{{.args.container}}" ]]; then ARGS+=(--container "{{.args.container}}"); fi
+      kubectl exec -it "{{.args.pod}}" "${ARGS[@]}" -- {{.args.command}}

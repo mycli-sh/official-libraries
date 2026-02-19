@@ -1,0 +1,52 @@
+schemaVersion: 1
+kind: command
+metadata:
+  name: Logs
+  slug: logs
+  description: Stream or tail logs from a Kubernetes pod
+  tags: [kubernetes, logs, debugging]
+dependencies: [kubectl]
+defaults:
+  shell: /bin/bash
+  timeout: 5m
+args:
+  positional:
+    - name: pod
+      description: Name of the pod
+  flags:
+    - name: namespace
+      short: "n"
+      type: string
+      description: Kubernetes namespace
+      default: ""
+    - name: container
+      short: c
+      type: string
+      description: Container name (for multi-container pods)
+      default: ""
+    - name: follow
+      short: f
+      type: bool
+      description: Follow log output
+      default: "false"
+    - name: previous
+      short: p
+      type: bool
+      description: Show logs from previous terminated container
+      default: "false"
+    - name: tail
+      short: t
+      type: string
+      description: Number of lines to show from end of logs
+      default: ""
+steps:
+  - name: logs
+    run: |
+      set -euo pipefail
+      ARGS=()
+      if [[ -n "{{.args.namespace}}" ]]; then ARGS+=(--namespace "{{.args.namespace}}"); fi
+      if [[ -n "{{.args.container}}" ]]; then ARGS+=(--container "{{.args.container}}"); fi
+      if [[ "{{.args.follow}}" == "true" ]]; then ARGS+=(--follow); fi
+      if [[ "{{.args.previous}}" == "true" ]]; then ARGS+=(--previous); fi
+      if [[ -n "{{.args.tail}}" ]]; then ARGS+=(--tail "{{.args.tail}}"); fi
+      kubectl logs "{{.args.pod}}" "${ARGS[@]}"

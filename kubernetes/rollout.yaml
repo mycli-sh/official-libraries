@@ -1,0 +1,30 @@
+schemaVersion: 1
+kind: command
+metadata:
+  name: Rollout
+  slug: rollout
+  description: Manage deployment rollouts (status, restart, history)
+  tags: [kubernetes, deployments, rollout]
+dependencies: [kubectl]
+defaults:
+  shell: /bin/bash
+  timeout: 2m
+args:
+  positional:
+    - name: action
+      description: "Rollout action: status, restart, history, undo"
+    - name: resource
+      description: "Resource to manage (e.g. deployment/nginx)"
+  flags:
+    - name: namespace
+      short: "n"
+      type: string
+      description: Kubernetes namespace
+      default: ""
+steps:
+  - name: rollout
+    run: |
+      set -euo pipefail
+      ARGS=()
+      if [[ -n "{{.args.namespace}}" ]]; then ARGS+=(--namespace "{{.args.namespace}}"); fi
+      kubectl rollout "{{.args.action}}" "{{.args.resource}}" "${ARGS[@]}"

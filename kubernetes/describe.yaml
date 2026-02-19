@@ -1,0 +1,36 @@
+schemaVersion: 1
+kind: command
+metadata:
+  name: Describe
+  slug: describe
+  description: Describe a Kubernetes resource in detail
+  tags: [kubernetes, inspect, debugging]
+dependencies: [kubectl]
+defaults:
+  shell: /bin/bash
+  timeout: 30s
+args:
+  positional:
+    - name: resource
+      description: "Resource type (e.g. pod, service, deployment)"
+    - name: name
+      description: Resource name
+      required: false
+      default: ""
+  flags:
+    - name: namespace
+      short: "n"
+      type: string
+      description: Kubernetes namespace
+      default: ""
+steps:
+  - name: describe
+    run: |
+      set -euo pipefail
+      ARGS=()
+      if [[ -n "{{.args.namespace}}" ]]; then ARGS+=(--namespace "{{.args.namespace}}"); fi
+      if [[ -n "{{.args.name}}" ]]; then
+        kubectl describe "{{.args.resource}}" "{{.args.name}}" "${ARGS[@]}"
+      else
+        kubectl describe "{{.args.resource}}" "${ARGS[@]}"
+      fi

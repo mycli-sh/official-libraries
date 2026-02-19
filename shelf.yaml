@@ -1,0 +1,8 @@
+shelfVersion: 1
+name: mycli-libraries
+description: Official mycli command libraries
+libraries:
+  kubernetes:
+    name: Kubernetes
+    description: Commands for Kubernetes cluster management
+    path: kubernetes

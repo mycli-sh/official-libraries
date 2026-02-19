@@ -1,0 +1,32 @@
+schemaVersion: 1
+kind: command
+metadata:
+  name: Topology
+  slug: topology
+  description: Show pod distribution across nodes
+  tags: [kubernetes, nodes, topology]
+dependencies: [kubectl]
+defaults:
+  shell: /bin/bash
+  timeout: 30s
+args:
+  positional: []
+  flags:
+    - name: namespace
+      short: "n"
+      type: string
+      description: Kubernetes namespace
+      default: ""
+    - name: all
+      short: A
+      type: bool
+      description: Show pods across all namespaces
+      default: "false"
+steps:
+  - name: topology
+    run: |
+      set -euo pipefail
+      NS_FLAG=""
+      if [[ "{{.args.all}}" == "true" ]]; then NS_FLAG="--all-namespaces"; fi
+      if [[ -n "{{.args.namespace}}" ]]; then NS_FLAG="--namespace={{.args.namespace}}"; fi
+      kubectl get pods ${NS_FLAG} -o custom-columns=NODE:.spec.nodeName,NAMESPACE:.metadata.namespace,POD:.metadata.name,STATUS:.status.phase --sort-by=.spec.nodeName

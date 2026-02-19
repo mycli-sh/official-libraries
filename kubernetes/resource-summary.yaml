@@ -1,0 +1,50 @@
+schemaVersion: 1
+kind: command
+metadata:
+  name: Resource Summary
+  slug: resource-summary
+  description: Show CPU and memory usage, requests, and limits for pods
+  tags: [kubernetes, resources, monitoring]
+dependencies: [kubectl]
+defaults:
+  shell: /bin/bash
+  timeout: 2m
+  env:
+    K8S_POD_TPL_B64: "e3tyYW5nZSAuaXRlbXN9fXt7JG5zIDo9IC5tZXRhZGF0YS5uYW1lc3BhY2V9fXt7JHBvZCA6PSAubWV0YWRhdGEubmFtZX19e3tyYW5nZSAuc3BlYy5jb250YWluZXJzfX17eyRuc319LHt7JHBvZH19LHt7Lm5hbWV9fSx7e2lmIC5yZXNvdXJjZXMucmVxdWVzdHMuY3B1fX17ey5yZXNvdXJjZXMucmVxdWVzdHMuY3B1fX17e2Vsc2V9fS17e2VuZH19LHt7aWYgLnJlc291cmNlcy5saW1pdHMuY3B1fX17ey5yZXNvdXJjZXMubGltaXRzLmNwdX19e3tlbHNlfX0te3tlbmR9fSx7e2lmIC5yZXNvdXJjZXMucmVxdWVzdHMubWVtb3J5fX17ey5yZXNvdXJjZXMucmVxdWVzdHMubWVtb3J5fX17e2Vsc2V9fS17e2VuZH19LHt7aWYgLnJlc291cmNlcy5saW1pdHMubWVtb3J5fX17ey5yZXNvdXJjZXMubGltaXRzLm1lbW9yeX19e3tlbHNlfX0te3tlbmR9fQp7e2VuZH19e3tlbmR9fQ=="
+args:
+  positional: []
+  flags:
+    - name: namespace
+      short: "n"
+      type: string
+      description: Filter to a specific namespace
+      default: ""
+    - name: all
+      short: A
+      type: bool
+      description: Show pods across all namespaces
+      default: "false"
+steps:
+  - name: resource-summary
+    run: |
+      set -euo pipefail
+      NS_FLAG=""
+      if [[ "{{.args.all}}" == "true" ]]; then NS_FLAG="--all-namespaces"; fi
+      if [[ -n "{{.args.namespace}}" ]]; then NS_FLAG="--namespace={{.args.namespace}}"; fi
+      K8S_TPL=$(printf '%s' "${K8S_POD_TPL_B64}" | base64 -d)
+      SPEC_DATA=$(kubectl get pods ${NS_FLAG} -o go-template="${K8S_TPL}" 2>/dev/null)
+      TOP_DATA=$(kubectl top pods ${NS_FLAG} --containers --no-headers 2>/dev/null || true)
+      printf '%-20s %-40s %-20s %-10s %-10s %-10s %-10s %-10s %-10s\n' NAMESPACE POD CONTAINER CPU_USE CPU_REQ CPU_LIM MEM_USE MEM_REQ MEM_LIM
+      printf '%-20s %-40s %-20s %-10s %-10s %-10s %-10s %-10s %-10s\n' -------- --- --------- ------- ------- ------- ------- ------- -------
+      while IFS=',' read -r ns pod ctr cpu_req cpu_lim mem_req mem_lim; do
+        [[ -z "$ns" ]] && continue
+        cpu_use='-'; mem_use='-'
+        if [[ -n "${TOP_DATA}" ]]; then
+          top_line=$(echo "${TOP_DATA}" | awk -v ns="$ns" -v pod="$pod" -v ctr="$ctr" '$1==ns && $2==pod && $3==ctr {print $4,$5}')
+          if [[ -n "$top_line" ]]; then
+            cpu_use=$(echo "$top_line" | awk '{print $1}')
+            mem_use=$(echo "$top_line" | awk '{print $2}')
+          fi
+        fi
+        printf '%-20s %-40s %-20s %-10s %-10s %-10s %-10s %-10s %-10s\n' "$ns" "$pod" "$ctr" "$cpu_use" "$cpu_req" "$cpu_lim" "$mem_use" "$mem_req" "$mem_lim"
+      done <<< "${SPEC_DATA}"
