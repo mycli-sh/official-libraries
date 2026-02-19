@@ -43,4 +43,4 @@ steps:
       if [[ -n "{{.args.namespace}}" ]]; then ARGS+=(--namespace "{{.args.namespace}}"); fi
       if [[ -n "{{.args.output}}" ]]; then ARGS+=(-o "{{.args.output}}"); fi
       if [[ "{{.args.show-labels}}" == "true" ]]; then ARGS+=(--show-labels); fi
-      kubectl get "{{.args.resource}}" "${ARGS[@]}"
+      kubectl get "{{.args.resource}}" ${ARGS[@]+"${ARGS[@]}"}

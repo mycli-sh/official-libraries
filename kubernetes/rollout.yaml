@@ -27,4 +27,4 @@ steps:
       set -euo pipefail
       ARGS=()
       if [[ -n "{{.args.namespace}}" ]]; then ARGS+=(--namespace "{{.args.namespace}}"); fi
-      kubectl rollout "{{.args.action}}" "{{.args.resource}}" "${ARGS[@]}"
+      kubectl rollout "{{.args.action}}" "{{.args.resource}}" ${ARGS[@]+"${ARGS[@]}"}

@@ -49,4 +49,4 @@ steps:
       if [[ "{{.args.follow}}" == "true" ]]; then ARGS+=(--follow); fi
       if [[ "{{.args.previous}}" == "true" ]]; then ARGS+=(--previous); fi
       if [[ -n "{{.args.tail}}" ]]; then ARGS+=(--tail "{{.args.tail}}"); fi
-      kubectl logs "{{.args.pod}}" "${ARGS[@]}"
+      kubectl logs "{{.args.pod}}" ${ARGS[@]+"${ARGS[@]}"}

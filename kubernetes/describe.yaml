@@ -30,7 +30,7 @@ steps:
       ARGS=()
       if [[ -n "{{.args.namespace}}" ]]; then ARGS+=(--namespace "{{.args.namespace}}"); fi
       if [[ -n "{{.args.name}}" ]]; then
-        kubectl describe "{{.args.resource}}" "{{.args.name}}" "${ARGS[@]}"
+        kubectl describe "{{.args.resource}}" "{{.args.name}}" ${ARGS[@]+"${ARGS[@]}"}
       else
-        kubectl describe "{{.args.resource}}" "${ARGS[@]}"
+        kubectl describe "{{.args.resource}}" ${ARGS[@]+"${ARGS[@]}"}
       fi

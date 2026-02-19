@@ -28,4 +28,4 @@ steps:
       ARGS=()
       if [[ -n "{{.args.namespace}}" ]]; then ARGS+=(--namespace "{{.args.namespace}}"); fi
       echo "Forwarding {{.args.ports}} → {{.args.target}}"
-      kubectl port-forward "{{.args.target}}" "{{.args.ports}}" "${ARGS[@]}"
+      kubectl port-forward "{{.args.target}}" "{{.args.ports}}" ${ARGS[@]+"${ARGS[@]}"}

@@ -36,4 +36,4 @@ steps:
       ARGS=()
       if [[ -n "{{.args.namespace}}" ]]; then ARGS+=(--namespace "{{.args.namespace}}"); fi
       if [[ -n "{{.args.container}}" ]]; then ARGS+=(--container "{{.args.container}}"); fi
-      kubectl exec -it "{{.args.pod}}" "${ARGS[@]}" -- {{.args.command}}
+      kubectl exec -it "{{.args.pod}}" ${ARGS[@]+"${ARGS[@]}"} -- {{.args.command}}
