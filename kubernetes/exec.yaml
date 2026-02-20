@@ -8,7 +8,7 @@ metadata:
 dependencies: [kubectl]
 defaults:
   shell: /bin/bash
-  timeout: 10m
+  timeout: "0s"
 args:
   positional:
     - name: pod
