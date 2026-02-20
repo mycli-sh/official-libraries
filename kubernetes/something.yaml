@@ -1,0 +1,16 @@
+schemaVersion: 1
+kind: command
+metadata:
+  name: Something
+  slug: something
+  description: Describe a Kubernetes resource in detail
+  tags: [kubernetes, inspect, debugging]
+dependencies: [kubectl]
+defaults:
+  shell: /bin/bash
+  timeout: 30s
+steps:
+  - name: something
+    run: |
+      set -euo pipefail
+      echo 'something!'
