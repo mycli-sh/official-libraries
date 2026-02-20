@@ -3,7 +3,7 @@ kind: command
 metadata:
   name: Get
   slug: get
-  description: Get Kubernetes resources with flexible output
+  description: Get Kubernetes resources with flexible output.
   tags: [kubernetes, resources, list]
 dependencies: [kubectl]
 defaults:
