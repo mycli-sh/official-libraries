@@ -1,4 +1,5 @@
 shelfVersion: 1
+namespace: system
 name: mycli-libraries
 description: Official mycli command libraries
 libraries:
