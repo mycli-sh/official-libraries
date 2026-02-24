@@ -7,3 +7,7 @@ libraries:
     name: Kubernetes
     description: Commands for Kubernetes cluster management
     path: kubernetes
+  hello:
+    name: Hello World
+    description: A simple command to print "Hello, World!"
+    path: hello

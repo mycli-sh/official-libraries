@@ -1,0 +1,14 @@
+schemaVersion: 1
+kind: command
+metadata:
+  name: world
+  slug: world
+  description: A simple command to print "Hello, World!"
+defaults:
+  shell: /bin/bash
+  timeout: 1s
+steps:
+  - name: hello-world
+    run: |
+      set -euo pipefail
+      echo 'Hello, World!'
