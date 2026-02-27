@@ -13,7 +13,7 @@ defaults:
 args:
   positional:
     - name: name
-      description: Context name to switch to
+      description: Context name to switch to (omit for interactive selection)
       required: false
       default: ""
   flags:
@@ -21,6 +21,11 @@ args:
       short: l
       type: bool
       description: List all available contexts
+      default: "false"
+    - name: current
+      short: c
+      type: bool
+      description: Show current context
       default: "false"
 steps:
   - name: context
@@ -30,9 +35,25 @@ steps:
         kubectl config get-contexts
         exit 0
       fi
-      if [[ -z "{{.args.name}}" ]]; then
+      if [[ "{{.args.current}}" == "true" ]]; then
         echo "Current context: $(kubectl config current-context)"
         exit 0
       fi
-      kubectl config use-context "{{.args.name}}"
-      echo "Switched to context: {{.args.name}}"
+
+      NAME="{{.args.name}}"
+      if [[ -z "$NAME" ]]; then
+        if command -v fzf &>/dev/null; then
+          NAME=$(kubectl config get-contexts -o name | fzf --prompt="Select context: ")
+          [[ -z "$NAME" ]] && echo "No context selected." && exit 1
+        else
+          echo "Current context: $(kubectl config current-context)"
+          echo ""
+          echo "Available contexts:"
+          kubectl config get-contexts
+          echo ""
+          echo "Tip: install fzf for interactive selection"
+          exit 1
+        fi
+      fi
+      kubectl config use-context "$NAME"
+      echo "Switched to context: $NAME"

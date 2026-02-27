@@ -13,7 +13,7 @@ defaults:
 args:
   positional:
     - name: name
-      description: Namespace name to switch to
+      description: Namespace name to switch to (omit for interactive selection)
       required: false
       default: ""
   flags:
@@ -35,10 +35,27 @@ steps:
         kubectl get namespaces
         exit 0
       fi
-      if [[ "{{.args.current}}" == "true" ]] || [[ -z "{{.args.name}}" ]]; then
+      if [[ "{{.args.current}}" == "true" ]]; then
         NS=$(kubectl config view --minify --output 'jsonpath={..namespace}' 2>/dev/null)
         echo "Current namespace: ${NS:-default}"
         exit 0
       fi
-      kubectl config set-context --current --namespace="{{.args.name}}"
-      echo "Switched to namespace: {{.args.name}}"
+
+      NAME="{{.args.name}}"
+      if [[ -z "$NAME" ]]; then
+        if command -v fzf &>/dev/null; then
+          NAME=$(kubectl get namespaces --no-headers | awk '{print $1}' | fzf --prompt="Select namespace: ")
+          [[ -z "$NAME" ]] && echo "No namespace selected." && exit 1
+        else
+          NS=$(kubectl config view --minify --output 'jsonpath={..namespace}' 2>/dev/null)
+          echo "Current namespace: ${NS:-default}"
+          echo ""
+          echo "Available namespaces:"
+          kubectl get namespaces
+          echo ""
+          echo "Tip: install fzf for interactive selection"
+          exit 1
+        fi
+      fi
+      kubectl config set-context --current --namespace="$NAME"
+      echo "Switched to namespace: $NAME"

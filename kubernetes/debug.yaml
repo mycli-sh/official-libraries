@@ -1,10 +1,10 @@
 schemaVersion: 1
 kind: command
 metadata:
-  name: Logs
-  slug: logs
-  description: Stream or tail logs from a Kubernetes pod
-  tags: [kubernetes, logs, debugging]
+  name: Debug
+  slug: debug
+  description: Attach an ephemeral debug container to a running pod
+  tags: [kubernetes, debugging]
 dependencies: [kubectl]
 defaults:
   shell: /bin/bash
@@ -12,7 +12,7 @@ defaults:
 args:
   positional:
     - name: pod
-      description: Name of the pod (omit for interactive selection)
+      description: Name of the pod to debug (omit for interactive selection)
       required: false
       default: ""
   flags:
@@ -21,28 +21,18 @@ args:
       type: string
       description: Kubernetes namespace
       default: ""
-    - name: container
-      short: c
+    - name: image
+      short: i
       type: string
-      description: Container name (for multi-container pods)
-      default: ""
-    - name: follow
-      short: f
-      type: bool
-      description: Follow log output
-      default: "false"
-    - name: previous
-      short: p
-      type: bool
-      description: Show logs from previous terminated container
-      default: "false"
-    - name: tail
+      description: Debug container image
+      default: busybox
+    - name: target
       short: t
       type: string
-      description: Number of lines to show from end of logs
+      description: Target container to share process namespace with
       default: ""
 steps:
-  - name: logs
+  - name: debug
     run: |
       set -euo pipefail
       NS_FLAG=""
@@ -64,8 +54,5 @@ steps:
 
       ARGS=()
       if [[ -n "${NS_FLAG}" ]]; then ARGS+=(${NS_FLAG}); fi
-      if [[ -n "{{.args.container}}" ]]; then ARGS+=(--container "{{.args.container}}"); fi
-      if [[ "{{.args.follow}}" == "true" ]]; then ARGS+=(--follow); fi
-      if [[ "{{.args.previous}}" == "true" ]]; then ARGS+=(--previous); fi
-      if [[ -n "{{.args.tail}}" ]]; then ARGS+=(--tail "{{.args.tail}}"); fi
-      kubectl logs "$POD" ${ARGS[@]+"${ARGS[@]}"}
+      if [[ -n "{{.args.target}}" ]]; then ARGS+=(--target "{{.args.target}}"); fi
+      kubectl debug -it "$POD" --image="{{.args.image}}" ${ARGS[@]+"${ARGS[@]}"}

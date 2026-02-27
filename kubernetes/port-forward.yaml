@@ -12,10 +12,15 @@ defaults:
 args:
   positional:
     - name: target
-      description: "Target resource (e.g. pod/name, svc/name, deploy/name)"
-    - name: ports
-      description: "Port mapping (e.g. 8080:80, 3000)"
+      description: "Target resource (e.g. pod/name, svc/name, deploy/name). Omit for interactive selection"
+      required: false
+      default: ""
   flags:
+    - name: ports
+      short: p
+      type: string
+      description: "Port mapping (e.g. 8080:80, 3000)"
+      default: ""
     - name: namespace
       short: "n"
       type: string
@@ -25,7 +30,36 @@ steps:
   - name: port-forward
     run: |
       set -euo pipefail
+      NS_FLAG=""
+      if [[ -n "{{.args.namespace}}" ]]; then NS_FLAG="--namespace={{.args.namespace}}"; fi
+
+      TARGET="{{.args.target}}"
+      if [[ -z "$TARGET" ]]; then
+        if command -v fzf &>/dev/null; then
+          TYPE=$(printf 'pod\nservice\ndeployment' | fzf --prompt="Select resource type: ")
+          [[ -z "$TYPE" ]] && echo "No type selected." && exit 1
+          RESOURCE=$(kubectl get "$TYPE" --no-headers ${NS_FLAG} | fzf --prompt="Select $TYPE: " | awk '{print $1}')
+          [[ -z "$RESOURCE" ]] && echo "No resource selected." && exit 1
+          case "$TYPE" in
+            pod)        TARGET="pod/$RESOURCE" ;;
+            service)    TARGET="svc/$RESOURCE" ;;
+            deployment) TARGET="deploy/$RESOURCE" ;;
+          esac
+        else
+          echo "No target specified. Example: pod/my-pod, svc/my-service, deploy/my-deploy"
+          echo ""
+          echo "Tip: install fzf for interactive selection"
+          exit 1
+        fi
+      fi
+
+      PORTS="{{.args.ports}}"
+      if [[ -z "$PORTS" ]]; then
+        echo "Error: --ports (-p) is required. Example: -p 8080:80"
+        exit 1
+      fi
+
       ARGS=()
-      if [[ -n "{{.args.namespace}}" ]]; then ARGS+=(--namespace "{{.args.namespace}}"); fi
-      echo "Forwarding {{.args.ports}} → {{.args.target}}"
-      kubectl port-forward "{{.args.target}}" "{{.args.ports}}" ${ARGS[@]+"${ARGS[@]}"}
+      if [[ -n "${NS_FLAG}" ]]; then ARGS+=(${NS_FLAG}); fi
+      echo "Forwarding $PORTS → $TARGET"
+      kubectl port-forward "$TARGET" "$PORTS" ${ARGS[@]+"${ARGS[@]}"}

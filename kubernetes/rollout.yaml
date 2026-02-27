@@ -14,7 +14,9 @@ args:
     - name: action
       description: "Rollout action: status, restart, history, undo"
     - name: resource
-      description: "Resource to manage (e.g. deployment/nginx)"
+      description: "Resource to manage (e.g. deployment/nginx). Omit for interactive selection"
+      required: false
+      default: ""
   flags:
     - name: namespace
       short: "n"
@@ -25,6 +27,24 @@ steps:
   - name: rollout
     run: |
       set -euo pipefail
+      NS_FLAG=""
+      if [[ -n "{{.args.namespace}}" ]]; then NS_FLAG="--namespace={{.args.namespace}}"; fi
+
+      RESOURCE="{{.args.resource}}"
+      if [[ -z "$RESOURCE" ]]; then
+        if command -v fzf &>/dev/null; then
+          DEPLOY=$(kubectl get deployments --no-headers ${NS_FLAG} | fzf --prompt="Select deployment: " | awk '{print $1}')
+          [[ -z "$DEPLOY" ]] && echo "No deployment selected." && exit 1
+          RESOURCE="deployment/$DEPLOY"
+        else
+          echo "No resource specified. Available deployments:"
+          kubectl get deployments ${NS_FLAG}
+          echo ""
+          echo "Tip: install fzf for interactive selection"
+          exit 1
+        fi
+      fi
+
       ARGS=()
-      if [[ -n "{{.args.namespace}}" ]]; then ARGS+=(--namespace "{{.args.namespace}}"); fi
-      kubectl rollout "{{.args.action}}" "{{.args.resource}}" ${ARGS[@]+"${ARGS[@]}"}
+      if [[ -n "${NS_FLAG}" ]]; then ARGS+=(${NS_FLAG}); fi
+      kubectl rollout "{{.args.action}}" "$RESOURCE" ${ARGS[@]+"${ARGS[@]}"}

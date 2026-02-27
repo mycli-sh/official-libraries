@@ -1,14 +1,14 @@
 schemaVersion: 1
 kind: command
 metadata:
-  name: Describe
-  slug: describe
-  description: Describe a Kubernetes resource in detail
-  tags: [kubernetes, inspect, debugging]
+  name: Edit
+  slug: edit
+  description: Edit a Kubernetes resource in your default editor
+  tags: [kubernetes, edit, config]
 dependencies: [kubectl]
 defaults:
   shell: /bin/bash
-  timeout: 30s
+  timeout: "0s"
 args:
   positional:
     - name: resource
@@ -26,7 +26,7 @@ args:
       description: Kubernetes namespace
       default: ""
 steps:
-  - name: describe
+  - name: edit
     run: |
       set -euo pipefail
       NS_FLAG=""
@@ -61,4 +61,4 @@ steps:
 
       ARGS=()
       if [[ -n "${NS_FLAG}" ]]; then ARGS+=(${NS_FLAG}); fi
-      kubectl describe "$RESOURCE" "$NAME" ${ARGS[@]+"${ARGS[@]}"}
+      kubectl edit "$RESOURCE" "$NAME" ${ARGS[@]+"${ARGS[@]}"}

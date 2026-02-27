@@ -13,6 +13,10 @@ args:
   positional:
     - name: resource
       description: "Resource type (e.g. pods, services, deployments)"
+    - name: name
+      description: "Resource name (optional, omit to list all)"
+      required: false
+      default: ""
   flags:
     - name: namespace
       short: "n"
@@ -43,4 +47,8 @@ steps:
       if [[ -n "{{.args.namespace}}" ]]; then ARGS+=(--namespace "{{.args.namespace}}"); fi
       if [[ -n "{{.args.output}}" ]]; then ARGS+=(-o "{{.args.output}}"); fi
       if [[ "{{index .args "show-labels"}}" == "true" ]]; then ARGS+=(--show-labels); fi
-      kubectl get "{{.args.resource}}" ${ARGS[@]+"${ARGS[@]}"}
+      if [[ -n "{{.args.name}}" ]]; then
+        kubectl get "{{.args.resource}}" "{{.args.name}}" ${ARGS[@]+"${ARGS[@]}"}
+      else
+        kubectl get "{{.args.resource}}" ${ARGS[@]+"${ARGS[@]}"}
+      fi

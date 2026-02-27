@@ -12,7 +12,9 @@ defaults:
 args:
   positional:
     - name: pod
-      description: Name of the pod
+      description: Name of the pod (omit for interactive selection)
+      required: false
+      default: ""
   flags:
     - name: namespace
       short: "n"
@@ -33,7 +35,30 @@ steps:
   - name: exec
     run: |
       set -euo pipefail
+      NS_FLAG=""
+      if [[ -n "{{.args.namespace}}" ]]; then NS_FLAG="--namespace={{.args.namespace}}"; fi
+
+      POD="{{.args.pod}}"
+      if [[ -z "$POD" ]]; then
+        if command -v fzf &>/dev/null; then
+          POD=$(kubectl get pods --no-headers ${NS_FLAG} | fzf --prompt="Select pod: " | awk '{print $1}')
+          [[ -z "$POD" ]] && echo "No pod selected." && exit 1
+        else
+          echo "No pod specified. Available pods:"
+          kubectl get pods ${NS_FLAG}
+          echo ""
+          echo "Tip: install fzf for interactive selection"
+          exit 1
+        fi
+      fi
+
       ARGS=()
-      if [[ -n "{{.args.namespace}}" ]]; then ARGS+=(--namespace "{{.args.namespace}}"); fi
+      if [[ -n "${NS_FLAG}" ]]; then ARGS+=(${NS_FLAG}); fi
       if [[ -n "{{.args.container}}" ]]; then ARGS+=(--container "{{.args.container}}"); fi
-      kubectl exec -it "{{.args.pod}}" ${ARGS[@]+"${ARGS[@]}"} -- {{.args.command}}
+
+      CMD="{{.args.command}}"
+      if [[ "$CMD" == "/bin/sh" || "$CMD" == "/bin/bash" || "$CMD" == "sh" || "$CMD" == "bash" ]]; then
+        kubectl exec -it "$POD" ${ARGS[@]+"${ARGS[@]}"} -- $CMD
+      else
+        kubectl exec -it "$POD" ${ARGS[@]+"${ARGS[@]}"} -- /bin/sh -c "$CMD"
+      fi
