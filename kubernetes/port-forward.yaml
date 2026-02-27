@@ -38,7 +38,12 @@ steps:
         if command -v fzf &>/dev/null; then
           TYPE=$(printf 'pod\nservice\ndeployment' | fzf --prompt="Select resource type: ")
           [[ -z "$TYPE" ]] && echo "No type selected." && exit 1
-          RESOURCE=$(kubectl get "$TYPE" --no-headers ${NS_FLAG} | fzf --prompt="Select $TYPE: " | awk '{print $1}')
+          ITEMS=$(kubectl get "$TYPE" --no-headers ${NS_FLAG})
+          if [[ -z "$ITEMS" ]]; then
+            echo "No ${TYPE} resources found."
+            exit 1
+          fi
+          RESOURCE=$(echo "$ITEMS" | fzf --prompt="Select $TYPE: " | awk '{print $1}')
           [[ -z "$RESOURCE" ]] && echo "No resource selected." && exit 1
           case "$TYPE" in
             pod)        TARGET="pod/$RESOURCE" ;;

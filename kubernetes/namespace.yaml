@@ -44,7 +44,12 @@ steps:
       NAME="{{.args.name}}"
       if [[ -z "$NAME" ]]; then
         if command -v fzf &>/dev/null; then
-          NAME=$(kubectl get namespaces --no-headers | awk '{print $1}' | fzf --prompt="Select namespace: ")
+          ITEMS=$(kubectl get namespaces --no-headers | awk '{print $1}')
+          if [[ -z "$ITEMS" ]]; then
+            echo "No namespaces found."
+            exit 1
+          fi
+          NAME=$(echo "$ITEMS" | fzf --prompt="Select namespace: ")
           [[ -z "$NAME" ]] && echo "No namespace selected." && exit 1
         else
           NS=$(kubectl config view --minify --output 'jsonpath={..namespace}' 2>/dev/null)

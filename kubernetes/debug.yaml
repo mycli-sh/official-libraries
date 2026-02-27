@@ -41,7 +41,12 @@ steps:
       POD="{{.args.pod}}"
       if [[ -z "$POD" ]]; then
         if command -v fzf &>/dev/null; then
-          POD=$(kubectl get pods --no-headers ${NS_FLAG} | fzf --prompt="Select pod: " | awk '{print $1}')
+          ITEMS=$(kubectl get pods --no-headers ${NS_FLAG})
+          if [[ -z "$ITEMS" ]]; then
+            echo "No pods found."
+            exit 1
+          fi
+          POD=$(echo "$ITEMS" | fzf --prompt="Select pod: " | awk '{print $1}')
           [[ -z "$POD" ]] && echo "No pod selected." && exit 1
         else
           echo "No pod specified. Available pods:"

@@ -33,7 +33,12 @@ steps:
       RESOURCE="{{.args.resource}}"
       if [[ -z "$RESOURCE" ]]; then
         if command -v fzf &>/dev/null; then
-          DEPLOY=$(kubectl get deployments --no-headers ${NS_FLAG} | fzf --prompt="Select deployment: " | awk '{print $1}')
+          ITEMS=$(kubectl get deployments --no-headers ${NS_FLAG})
+          if [[ -z "$ITEMS" ]]; then
+            echo "No deployments found."
+            exit 1
+          fi
+          DEPLOY=$(echo "$ITEMS" | fzf --prompt="Select deployment: " | awk '{print $1}')
           [[ -z "$DEPLOY" ]] && echo "No deployment selected." && exit 1
           RESOURCE="deployment/$DEPLOY"
         else

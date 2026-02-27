@@ -48,7 +48,12 @@ steps:
       NAME="{{.args.name}}"
       if [[ -z "$NAME" ]]; then
         if command -v fzf &>/dev/null; then
-          NAME=$(kubectl get "$RESOURCE" --no-headers ${NS_FLAG} | fzf --prompt="Select $RESOURCE: " | awk '{print $1}')
+          ITEMS=$(kubectl get "$RESOURCE" --no-headers ${NS_FLAG})
+          if [[ -z "$ITEMS" ]]; then
+            echo "No ${RESOURCE} resources found."
+            exit 1
+          fi
+          NAME=$(echo "$ITEMS" | fzf --prompt="Select $RESOURCE: " | awk '{print $1}')
           [[ -z "$NAME" ]] && echo "No resource selected." && exit 1
         else
           echo "No name specified. Available $RESOURCE:"
