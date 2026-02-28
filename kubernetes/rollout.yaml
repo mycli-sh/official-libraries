@@ -23,11 +23,17 @@ args:
       type: string
       description: Kubernetes namespace
       default: ""
+    - name: all
+      short: A
+      type: bool
+      description: Show resources across all namespaces
+      default: "false"
 steps:
   - name: rollout
     run: |
       set -euo pipefail
       NS_FLAG=""
+      if [[ "{{.args.all}}" == "true" ]]; then NS_FLAG="--all-namespaces"; fi
       if [[ -n "{{.args.namespace}}" ]]; then NS_FLAG="--namespace={{.args.namespace}}"; fi
 
       RESOURCE="{{.args.resource}}"
