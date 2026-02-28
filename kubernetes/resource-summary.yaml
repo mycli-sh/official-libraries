@@ -9,8 +9,7 @@ dependencies: [kubectl]
 defaults:
   shell: /bin/bash
   timeout: 2m
-  env:
-    K8S_POD_TPL_B64: "e3tyYW5nZSAuaXRlbXN9fXt7JG5zIDo9IC5tZXRhZGF0YS5uYW1lc3BhY2V9fXt7JHBvZCA6PSAubWV0YWRhdGEubmFtZX19e3tyYW5nZSAuc3BlYy5jb250YWluZXJzfX17eyRuc319LHt7JHBvZH19LHt7Lm5hbWV9fSx7e2lmIC5yZXNvdXJjZXMucmVxdWVzdHMuY3B1fX17ey5yZXNvdXJjZXMucmVxdWVzdHMuY3B1fX17e2Vsc2V9fS17e2VuZH19LHt7aWYgLnJlc291cmNlcy5saW1pdHMuY3B1fX17ey5yZXNvdXJjZXMubGltaXRzLmNwdX19e3tlbHNlfX0te3tlbmR9fSx7e2lmIC5yZXNvdXJjZXMucmVxdWVzdHMubWVtb3J5fX17ey5yZXNvdXJjZXMucmVxdWVzdHMubWVtb3J5fX17e2Vsc2V9fS17e2VuZH19LHt7aWYgLnJlc291cmNlcy5saW1pdHMubWVtb3J5fX17ey5yZXNvdXJjZXMubGltaXRzLm1lbW9yeX19e3tlbHNlfX0te3tlbmR9fQp7e2VuZH19e3tlbmR9fQ=="
+  templateDelimiters: ["<%", "%>"]
 args:
   positional: []
   flags:
@@ -29,9 +28,9 @@ steps:
     run: |
       set -euo pipefail
       NS_FLAG=""
-      if [[ "{{.args.all}}" == "true" ]]; then NS_FLAG="--all-namespaces"; fi
-      if [[ -n "{{.args.namespace}}" ]]; then NS_FLAG="--namespace={{.args.namespace}}"; fi
-      K8S_TPL=$(printf '%s' "${K8S_POD_TPL_B64}" | base64 -d)
+      if [[ "<% .args.all %>" == "true" ]]; then NS_FLAG="--all-namespaces"; fi
+      if [[ -n "<% .args.namespace %>" ]]; then NS_FLAG="--namespace=<% .args.namespace %>"; fi
+      K8S_TPL='{{range .items}}{{$ns := .metadata.namespace}}{{$pod := .metadata.name}}{{range .spec.containers}}{{$ns}},{{$pod}},{{.name}},{{if .resources.requests.cpu}}{{.resources.requests.cpu}}{{else}}-{{end}},{{if .resources.limits.cpu}}{{.resources.limits.cpu}}{{else}}-{{end}},{{if .resources.requests.memory}}{{.resources.requests.memory}}{{else}}-{{end}},{{if .resources.limits.memory}}{{.resources.limits.memory}}{{else}}-{{end}}{{"\n"}}{{end}}{{end}}'
       SPEC_DATA=$(kubectl get pods ${NS_FLAG} -o go-template="${K8S_TPL}" 2>/dev/null)
       TOP_DATA=$(kubectl top pods ${NS_FLAG} --containers --no-headers 2>/dev/null || true)
       printf '%-20s %-40s %-20s %-10s %-10s %-10s %-10s %-10s %-10s\n' NAMESPACE POD CONTAINER CPU_USE CPU_REQ CPU_LIM MEM_USE MEM_REQ MEM_LIM
