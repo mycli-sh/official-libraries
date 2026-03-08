@@ -1,0 +1,88 @@
+schemaVersion: 1
+kind: command
+metadata:
+  name: Prune
+  slug: prune
+  description: Remove unused Docker resources (containers, images, volumes, networks, or all)
+  tags: [docker, cleanup, prune]
+  aliases: [clean]
+dependencies: [docker]
+defaults:
+  shell: /bin/bash
+  timeout: 60s
+  templateDelimiters: ["<%", "%>"]
+args:
+  positional:
+    - name: resource
+      description: "Resource to prune: containers, images, volumes, networks, all"
+  flags:
+    - name: force
+      short: f
+      type: bool
+      description: Also remove running containers (only applies to containers and all)
+      default: "false"
+steps:
+  - name: prune
+    run: |
+      set -euo pipefail
+
+      if ! docker info &>/dev/null; then
+        echo "Error: Docker daemon is not running."
+        exit 1
+      fi
+
+      RESOURCE="<% .args.resource %>"
+      FORCE="<% .args.force %>"
+
+      case "$RESOURCE" in
+        containers|images|volumes|networks|all) ;;
+        *)
+          echo "Error: invalid resource '$RESOURCE'. Must be one of: containers, images, volumes, networks, all"
+          exit 1
+          ;;
+      esac
+
+      prune_containers() {
+        if [[ "$FORCE" == "true" ]]; then
+          echo "Removing all containers (including running)..."
+          CONTAINERS=$(docker container ls -q -a)
+          if [[ -n "$CONTAINERS" ]]; then
+            echo "$CONTAINERS" | xargs docker rm -v -f
+          else
+            echo "No containers to remove."
+          fi
+        else
+          echo "Removing stopped containers..."
+          docker container prune --force
+        fi
+      }
+
+      case "$RESOURCE" in
+        containers)
+          prune_containers
+          ;;
+        images)
+          echo "Removing all unused images..."
+          docker image prune --all --force
+          ;;
+        volumes)
+          echo "Removing all unused volumes..."
+          docker volume prune --all --force
+          ;;
+        networks)
+          echo "Removing unused networks..."
+          docker network prune --force
+          ;;
+        all)
+          prune_containers
+          echo ""
+          echo "Removing all unused volumes..."
+          docker volume prune --all --force
+          echo ""
+          echo "Running full system prune..."
+          docker system prune --force --all --volumes
+          ;;
+      esac
+
+      echo ""
+      echo "Done."

@@ -9,6 +9,12 @@ libraries:
     path: kubernetes
     aliases:
       - k
+  docker:
+    name: Docker
+    description: Commands for Docker container management
+    path: docker
+    aliases:
+      - d
   hello:
     name: Hello World
     description: A simple command to print "Hello, World!"
