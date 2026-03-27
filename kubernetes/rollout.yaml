@@ -5,6 +5,7 @@ metadata:
   slug: rollout
   description: Manage deployment rollouts (status, restart, history)
   tags: [kubernetes, deployments, rollout]
+  aliases: [ro]
 dependencies: [kubectl]
 defaults:
   shell: /bin/bash

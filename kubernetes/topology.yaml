@@ -5,6 +5,7 @@ metadata:
   slug: topology
   description: Show pod distribution across nodes
   tags: [kubernetes, nodes, topology]
+  aliases: [topo]
 dependencies: [kubectl]
 defaults:
   shell: /bin/bash

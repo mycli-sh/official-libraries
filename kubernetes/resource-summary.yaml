@@ -5,6 +5,7 @@ metadata:
   slug: resource-summary
   description: Show CPU and memory usage, requests, and limits for pods
   tags: [kubernetes, resources, monitoring]
+  aliases: [rs]
 dependencies: [kubectl]
 defaults:
   shell: /bin/bash

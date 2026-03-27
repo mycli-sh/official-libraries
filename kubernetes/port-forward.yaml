@@ -5,6 +5,7 @@ metadata:
   slug: port-forward
   description: Forward local ports to a pod, service, or deployment
   tags: [kubernetes, networking, debugging]
+  aliases: [pf]
 dependencies: [kubectl]
 defaults:
   shell: /bin/bash

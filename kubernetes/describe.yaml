@@ -5,6 +5,7 @@ metadata:
   slug: describe
   description: Describe a Kubernetes resource in detail
   tags: [kubernetes, inspect, debugging]
+  aliases: [desc]
 dependencies: [kubectl]
 defaults:
   shell: /bin/bash

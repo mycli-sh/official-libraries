@@ -5,6 +5,7 @@ metadata:
   slug: logs
   description: Stream or tail logs from a Kubernetes pod
   tags: [kubernetes, logs, debugging]
+  aliases: [log]
 dependencies: [kubectl]
 defaults:
   shell: /bin/bash
