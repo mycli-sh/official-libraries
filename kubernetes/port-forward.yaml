@@ -33,6 +33,11 @@ args:
       type: bool
       description: Show resources across all namespaces
       default: "false"
+    - name: retry
+      short: r
+      type: bool
+      description: "Reconnect with exponential backoff when the connection drops (Ctrl+C to stop)"
+      default: "false"
 steps:
   - name: port-forward
     run: |
@@ -143,4 +148,42 @@ steps:
       ARGS=()
       if [[ -n "${NS_FLAG}" ]]; then ARGS+=(${NS_FLAG}); fi
       echo "Forwarding $PORTS → $TARGET"
-      kubectl port-forward "$TARGET" "$PORTS" ${ARGS[@]+"${ARGS[@]}"}
+
+      RETRY="<% .args.retry %>"
+
+      run_pf() {
+        kubectl port-forward "$TARGET" "$PORTS" ${ARGS[@]+"${ARGS[@]}"}
+      }
+
+      if [[ "$RETRY" != "true" ]]; then
+        run_pf
+        exit $?
+      fi
+
+      INTERRUPTED=0
+      trap 'INTERRUPTED=1' INT TERM
+
+      delay=1
+      max_delay=30
+      attempt=0
+      stable_threshold=10
+
+      while true; do
+        start=$(date +%s)
+        run_pf || true
+        (( INTERRUPTED )) && { echo ""; echo "Interrupted."; exit 0; }
+
+        duration=$(( $(date +%s) - start ))
+        if (( duration >= stable_threshold )); then
+          delay=1
+          attempt=0
+        fi
+
+        attempt=$(( attempt + 1 ))
+        echo "Connection lost after ${duration}s. Reconnecting in ${delay}s (attempt ${attempt})..." >&2
+        sleep "$delay" &
+        wait $! || { echo ""; echo "Interrupted."; exit 0; }
+
+        delay=$(( delay * 2 ))
+        (( delay > max_delay )) && delay=$max_delay
+      done
