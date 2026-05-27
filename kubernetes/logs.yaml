@@ -47,10 +47,32 @@ args:
       type: string
       description: Number of lines to show from end of logs
       default: ""
+    - name: context
+      short: C
+      type: string
+      description: "Pin to this kubectl context (default: current context at command start)"
+      default: ""
+    - name: retry
+      short: r
+      type: bool
+      description: "With --follow, reconnect with exponential backoff if the log stream drops (e.g. on pod restart). Stays on the pinned context. Ctrl+C to stop."
+      default: "false"
 steps:
   - name: logs
     run: |
       set -euo pipefail
+
+      # Pin context at command start so retries / discovery can't drift.
+      CONTEXT="{{.args.context}}"
+      if [[ -z "$CONTEXT" ]]; then
+        CONTEXT=$(kubectl config current-context 2>/dev/null || true)
+      fi
+      if [[ -z "$CONTEXT" ]]; then
+        echo "Error: no current kubectl context. Set one with 'my k context' or pass --context." >&2
+        exit 1
+      fi
+      CTX_FLAG="--context=$CONTEXT"
+
       NS_FLAG=""
       if [[ "{{.args.all}}" == "true" ]]; then NS_FLAG="--all-namespaces"; fi
       if [[ -n "{{.args.namespace}}" ]]; then NS_FLAG="--namespace={{.args.namespace}}"; fi
@@ -58,26 +80,93 @@ steps:
       POD="{{.args.pod}}"
       if [[ -z "$POD" ]]; then
         if command -v fzf &>/dev/null; then
-          ITEMS=$(kubectl get pods --no-headers ${NS_FLAG})
+          ITEMS=$(kubectl ${CTX_FLAG} get pods --no-headers ${NS_FLAG})
           if [[ -z "$ITEMS" ]]; then
             echo "No pods found."
             exit 1
           fi
-          POD=$(echo "$ITEMS" | fzf --prompt="Select pod: " | awk '{print $1}')
-          [[ -z "$POD" ]] && echo "No pod selected." && exit 1
+          if [[ "{{.args.all}}" == "true" ]]; then
+            # --all-namespaces output has namespace as the first column
+            SELECTION=$(echo "$ITEMS" | fzf --prompt="Select pod: ")
+            [[ -z "$SELECTION" ]] && echo "No pod selected." && exit 1
+            SEL_NS=$(echo "$SELECTION" | awk '{print $1}')
+            POD=$(echo "$SELECTION" | awk '{print $2}')
+            NS_FLAG="--namespace=$SEL_NS"
+          else
+            POD=$(echo "$ITEMS" | fzf --prompt="Select pod: " | awk '{print $1}')
+            [[ -z "$POD" ]] && echo "No pod selected." && exit 1
+          fi
         else
           echo "No pod specified. Available pods:"
-          kubectl get pods ${NS_FLAG}
+          kubectl ${CTX_FLAG} get pods ${NS_FLAG}
           echo ""
           echo "Tip: install fzf for interactive selection"
           exit 1
         fi
       fi
 
+      FOLLOW="{{.args.follow}}"
+      RETRY="{{.args.retry}}"
+
+      # --retry is only meaningful when streaming.
+      if [[ "$RETRY" == "true" && "$FOLLOW" != "true" ]]; then
+        echo "Note: --retry has no effect without --follow; running once." >&2
+        RETRY="false"
+      fi
+
+      # Pin namespace for retry: if still implicit, resolve effective namespace now.
+      if [[ "$RETRY" == "true" && -z "${NS_FLAG}" ]]; then
+        EFFECTIVE_NS=$(kubectl ${CTX_FLAG} config view --minify -o jsonpath='{..namespace}' 2>/dev/null)
+        EFFECTIVE_NS="${EFFECTIVE_NS:-default}"
+        NS_FLAG="--namespace=$EFFECTIVE_NS"
+      fi
+
       ARGS=()
       if [[ -n "${NS_FLAG}" ]]; then ARGS+=(${NS_FLAG}); fi
       if [[ -n "{{.args.container}}" ]]; then ARGS+=(--container "{{.args.container}}"); fi
-      if [[ "{{.args.follow}}" == "true" ]]; then ARGS+=(--follow); fi
+      if [[ "$FOLLOW" == "true" ]]; then ARGS+=(--follow); fi
       if [[ "{{.args.previous}}" == "true" ]]; then ARGS+=(--previous); fi
       if [[ -n "{{.args.tail}}" ]]; then ARGS+=(--tail "{{.args.tail}}"); fi
-      kubectl logs "$POD" ${ARGS[@]+"${ARGS[@]}"}
+
+      run_logs() {
+        kubectl ${CTX_FLAG} logs "$POD" ${ARGS[@]+"${ARGS[@]}"}
+      }
+
+      if [[ "$RETRY" != "true" ]]; then
+        run_logs
+        exit $?
+      fi
+
+      if [[ "${NS_FLAG}" == --namespace=* ]]; then
+        echo "Streaming logs from $POD (context: $CONTEXT, namespace: ${NS_FLAG#--namespace=})" >&2
+      else
+        echo "Streaming logs from $POD (context: $CONTEXT)" >&2
+      fi
+
+      INTERRUPTED=0
+      trap 'INTERRUPTED=1' INT TERM
+
+      delay=1
+      max_delay=30
+      attempt=0
+      stable_threshold=10
+
+      while true; do
+        start=$(date +%s)
+        run_logs || true
+        (( INTERRUPTED )) && { echo ""; echo "Interrupted."; exit 0; }
+
+        duration=$(( $(date +%s) - start ))
+        if (( duration >= stable_threshold )); then
+          delay=1
+          attempt=0
+        fi
+
+        attempt=$(( attempt + 1 ))
+        echo "Log stream ended after ${duration}s. Reconnecting in ${delay}s (attempt ${attempt})..." >&2
+        sleep "$delay" &
+        wait $! || { echo ""; echo "Interrupted."; exit 0; }
+
+        delay=$(( delay * 2 ))
+        (( delay > max_delay )) && delay=$max_delay
+      done

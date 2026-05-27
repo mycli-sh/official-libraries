@@ -33,51 +33,77 @@ args:
       type: bool
       description: Show resources across all namespaces
       default: "false"
+    - name: context
+      short: C
+      type: string
+      description: "Pin to this kubectl context (default: current context at command start)"
+      default: ""
     - name: retry
       short: r
       type: bool
-      description: "Reconnect with exponential backoff when the connection drops (Ctrl+C to stop)"
+      description: "Reconnect with exponential backoff when the connection drops, staying on the pinned context (Ctrl+C to stop)"
       default: "false"
 steps:
   - name: port-forward
     run: |
       set -euo pipefail
 
+      # Pin context at command start so --retry can't silently jump clusters
+      # if the user runs `kubectl config use-context ...` mid-loop.
+      CONTEXT="<% .args.context %>"
+      if [[ -z "$CONTEXT" ]]; then
+        CONTEXT=$(kubectl config current-context 2>/dev/null || true)
+      fi
+      if [[ -z "$CONTEXT" ]]; then
+        echo "Error: no current kubectl context. Set one with 'my k context' or pass --context." >&2
+        exit 1
+      fi
+      CTX_FLAG="--context=$CONTEXT"
+
       discover_ports() {
         local ns_arg="${1:-}"
 
-        kubectl get services ${ns_arg} -o go-template='{{range .items}}{{$ns := .metadata.namespace}}{{$name := .metadata.name}}{{range .spec.ports}}{{$ns}} Service {{$name}} {{.port}}{{"\n"}}{{end}}{{end}}' 2>/dev/null || true
+        kubectl ${CTX_FLAG} get services ${ns_arg} -o go-template='{{range .items}}{{$ns := .metadata.namespace}}{{$name := .metadata.name}}{{range .spec.ports}}{{$ns}} Service {{$name}} {{.port}}{{"\n"}}{{end}}{{end}}' 2>/dev/null || true
 
-        kubectl get deployments ${ns_arg} -o go-template='{{range .items}}{{$ns := .metadata.namespace}}{{$name := .metadata.name}}{{range .spec.template.spec.containers}}{{range .ports}}{{$ns}} Deployment {{$name}} {{.containerPort}}{{"\n"}}{{end}}{{end}}{{end}}' 2>/dev/null || true
+        kubectl ${CTX_FLAG} get deployments ${ns_arg} -o go-template='{{range .items}}{{$ns := .metadata.namespace}}{{$name := .metadata.name}}{{range .spec.template.spec.containers}}{{range .ports}}{{$ns}} Deployment {{$name}} {{.containerPort}}{{"\n"}}{{end}}{{end}}{{end}}' 2>/dev/null || true
 
-        kubectl get pods ${ns_arg} -o go-template='{{range .items}}{{$ns := .metadata.namespace}}{{$name := .metadata.name}}{{range .spec.containers}}{{range .ports}}{{$ns}} Pod {{$name}} {{.containerPort}}{{"\n"}}{{end}}{{end}}{{end}}' 2>/dev/null || true
+        kubectl ${CTX_FLAG} get pods ${ns_arg} -o go-template='{{range .items}}{{$ns := .metadata.namespace}}{{$name := .metadata.name}}{{range .spec.containers}}{{range .ports}}{{$ns}} Pod {{$name}} {{.containerPort}}{{"\n"}}{{end}}{{end}}{{end}}' 2>/dev/null || true
       }
 
       discover_ports_for_target() {
         local kind="$1" name="$2" ns_arg="${3:-}"
         case "$kind" in
           svc|service|Service)
-            kubectl get service "$name" ${ns_arg} -o jsonpath='{range .spec.ports[*]}{.port}{"\n"}{end}' 2>/dev/null || true
+            kubectl ${CTX_FLAG} get service "$name" ${ns_arg} -o jsonpath='{range .spec.ports[*]}{.port}{"\n"}{end}' 2>/dev/null || true
             ;;
           deploy|deployment|Deployment)
-            kubectl get deployment "$name" ${ns_arg} -o jsonpath='{range .spec.template.spec.containers[*]}{range .ports[*]}{.containerPort}{"\n"}{end}{end}' 2>/dev/null || true
+            kubectl ${CTX_FLAG} get deployment "$name" ${ns_arg} -o jsonpath='{range .spec.template.spec.containers[*]}{range .ports[*]}{.containerPort}{"\n"}{end}{end}' 2>/dev/null || true
             ;;
           pod|Pod)
-            kubectl get pod "$name" ${ns_arg} -o jsonpath='{range .spec.containers[*]}{range .ports[*]}{.containerPort}{"\n"}{end}{end}' 2>/dev/null || true
+            kubectl ${CTX_FLAG} get pod "$name" ${ns_arg} -o jsonpath='{range .spec.containers[*]}{range .ports[*]}{.containerPort}{"\n"}{end}{end}' 2>/dev/null || true
             ;;
         esac
       }
 
-      NS_FLAG=""
-      if [[ "<% .args.all %>" == "true" ]]; then NS_FLAG="--all-namespaces"; fi
-      if [[ -n "<% .args.namespace %>" ]]; then NS_FLAG="--namespace=<% .args.namespace %>"; fi
+      # Resolve namespace once, up-front:
+      # --all wins, then explicit --namespace, else the context's current namespace.
+      # This is what fzf discovery + the actual port-forward both use.
+      if [[ "<% .args.all %>" == "true" ]]; then
+        NS_FLAG="--all-namespaces"
+      elif [[ -n "<% .args.namespace %>" ]]; then
+        NS_FLAG="--namespace=<% .args.namespace %>"
+      else
+        EFFECTIVE_NS=$(kubectl ${CTX_FLAG} config view --minify -o jsonpath='{..namespace}' 2>/dev/null)
+        EFFECTIVE_NS="${EFFECTIVE_NS:-default}"
+        NS_FLAG="--namespace=$EFFECTIVE_NS"
+      fi
 
       TARGET="<% .args.target %>"
       REMOTE_PORT=""
 
       if [[ -z "$TARGET" ]]; then
         if command -v fzf &>/dev/null; then
-          ALL_PORTS=$(discover_ports "${NS_FLAG:---all-namespaces}" | sed '/^$/d' | sort -u)
+          ALL_PORTS=$(discover_ports "$NS_FLAG" | sed '/^$/d' | sort -u)
           if [[ -z "$ALL_PORTS" ]]; then
             echo "No resources with ports found."
             exit 1
@@ -145,14 +171,18 @@ steps:
         fi
       fi
 
-      ARGS=()
-      if [[ -n "${NS_FLAG}" ]]; then ARGS+=(${NS_FLAG}); fi
-      echo "Forwarding $PORTS → $TARGET"
+      ARGS=(${NS_FLAG})
+
+      if [[ "${NS_FLAG}" == --namespace=* ]]; then
+        echo "Forwarding $PORTS → $TARGET (context: $CONTEXT, namespace: ${NS_FLAG#--namespace=})"
+      else
+        echo "Forwarding $PORTS → $TARGET (context: $CONTEXT)"
+      fi
 
       RETRY="<% .args.retry %>"
 
       run_pf() {
-        kubectl port-forward "$TARGET" "$PORTS" ${ARGS[@]+"${ARGS[@]}"}
+        kubectl ${CTX_FLAG} port-forward "$TARGET" "$PORTS" ${ARGS[@]+"${ARGS[@]}"}
       }
 
       if [[ "$RETRY" != "true" ]]; then
