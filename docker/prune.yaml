@@ -15,6 +15,7 @@ args:
   positional:
     - name: resource
       description: "Resource to prune: containers, images, volumes, networks, all"
+      enum: [containers, images, volumes, networks, all]
   flags:
     - name: force
       short: f
@@ -33,14 +34,6 @@ steps:
 
       RESOURCE="<% .args.resource %>"
       FORCE="<% .args.force %>"
-
-      case "$RESOURCE" in
-        containers|images|volumes|networks|all) ;;
-        *)
-          echo "Error: invalid resource '$RESOURCE'. Must be one of: containers, images, volumes, networks, all"
-          exit 1
-          ;;
-      esac
 
       prune_containers() {
         if [[ "$FORCE" == "true" ]]; then

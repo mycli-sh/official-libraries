@@ -14,6 +14,7 @@ args:
   positional:
     - name: action
       description: "Rollout action: status, restart, history, undo"
+      enum: [status, restart, history, undo]
     - name: resource
       description: "Resource to manage (e.g. deployment/nginx). Omit for interactive selection"
       required: false

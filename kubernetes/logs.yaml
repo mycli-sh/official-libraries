@@ -44,8 +44,9 @@ args:
       default: "false"
     - name: tail
       short: t
-      type: string
-      description: Number of lines to show from end of logs
+      type: int
+      min: -1
+      description: Number of lines to show from end of logs (-1 for all)
       default: ""
     - name: context
       short: C
